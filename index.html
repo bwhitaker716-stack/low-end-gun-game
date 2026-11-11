@@ -1,776 +1,118 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ghostline Ops</title>
-  <style>
-    :root {
-      --bg0: #040b11;
-      --bg1: #0b1b25;
-      --panel: rgba(7, 17, 23, 0.78);
-      --panel-strong: rgba(5, 12, 17, 0.9);
-      --line: rgba(124, 180, 255, 0.65);
-      --text: #edf7ff;
-      --muted: #9dc5eb;
-      --accent: #8ee2ff;
-      --danger: #f07878;
-      --good: #ccf4b2;
-    }
-
-    * { box-sizing: border-box; }
-    html, body {
-      margin: 0; width: 100%; height: 100%; overflow: hidden;
-      background: var(--bg0); color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-    }
-    body { position: relative; }
-    canvas {
-      position: fixed; inset: 0;
-      width: 100vw; height: 100vh; display: block;
-      background: linear-gradient(#0a1e2c, #04080d 62%);
-    }
-
-    #menu {
-      position: fixed; inset: 0; z-index: 20;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(2, 8, 12, 0.7);
-      backdrop-filter: blur(4px);
-    }
-    .menu-panel {
-      width: min(620px, 88vw); padding: 28px 24px 20px;
-      background: var(--panel); border: 1px solid var(--line);
-      border-radius: 16px; box-shadow: 0 0 30px rgba(100, 150, 220, 0.18);
-      text-align: center;
-    }
-    .brand { letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); font-size: 11px; }
-    h1 {
-      margin: 12px 0 18px; font-size: clamp(2.3rem, 5vw, 4.3rem);
-      letter-spacing: 0.09em; text-transform: uppercase;
-      text-shadow: 0 0 22px rgba(133, 211, 255, 0.42);
-    }
-    .btn-row {
-      display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
-      margin-bottom: 18px;
-    }
-    button, select {
-      appearance: none; border: 1px solid var(--line); background: rgba(10, 22, 31, 0.9);
-      color: var(--text); border-radius: 12px; padding: 0 18px; min-height: 46px;
-      min-width: 180px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-      cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease;
-    }
-    button:hover, select:hover { transform: translateY(-1px); box-shadow: 0 0 18px rgba(120,190,255,0.25); }
-    .quality-wrap {
-      display: flex; justify-content: center; align-items: center; gap: 12px;
-      font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
-    select {
-      min-width: 118px; padding-left: 12px;
-    }
-    .save-status {
-      min-height: 20px; color: var(--muted); letter-spacing: 0.08em; font-weight: 700;
-      text-transform: uppercase; font-size: 11px;
-    }
-
-    #hud {
-      position: fixed; inset: 0; z-index: 10; pointer-events: none; display: none;
-    }
-    .hud-top {
-      position: absolute; top: 18px; left: 18px; right: 18px;
-      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-    }
-    .statbox {
-      min-width: 160px; background: rgba(4, 12, 19, 0.72); border: 1px solid rgba(128, 183, 255, 0.3);
-      border-radius: 12px; padding: 10px 14px; box-shadow: 0 0 22px rgba(100,150,255,0.12);
-    }
-    .label {
-      display: block; color: var(--muted); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-    }
-    .value {
-      display: block; margin-top: 4px; font-weight: 700; font-size: 1.15rem;
-    }
-
-    .reticle {
-      position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; transform: translate(-50%, -50%);
-    }
-    .reticle::before, .reticle::after,
-    .reticle .v, .reticle .h {
-      content: ''; position: absolute; background: rgba(255,255,255,0.9);
-      box-shadow: 0 0 12px rgba(166, 216, 255, 0.7);
-    }
-    .reticle::before { width: 1px; height: 36px; left: 18px; top: 1px; }
-    .reticle::after { width: 36px; height: 1px; left: 1px; top: 18px; }
-    .reticle .v { width: 5px; height: 5px; left: 16.5px; top: 16.5px; border-radius: 50%; background: rgba(255,255,255,0.95); }
-    .reticle .h { width: 0; height: 0; }
-
-    .objective-box {
-      position: absolute; left: 22px; bottom: 70px; max-width: min(420px, 80vw);
-      background: rgba(5, 15, 21, 0.72); border: 1px solid rgba(132, 190, 255, 0.38);
-      border-radius: 12px; padding: 12px 14px;
-    }
-    .objective-text { margin-top: 6px; font-weight: 700; font-size: 1rem; }
-
-    .bottom-bar {
-      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
-      display: flex; align-items: center; gap: 16px; min-width: 340px;
-      background: rgba(4, 12, 17, 0.8); border: 1px solid rgba(118, 167, 236, 0.35);
-      border-radius: 12px; padding: 10px 18px;
-      text-transform: uppercase; letter-spacing: 0.06em;
-    }
-    .weapon-name { color: var(--accent); font-size: 0.8rem; font-weight: 700; }
-    .status-text { color: var(--text); font-size: 0.72rem; }
-
-    #message {
-      position: absolute; left: 50%; top: 100px; transform: translateX(-50%);
-      background: rgba(5, 11, 16, 0.8); border: 1px solid rgba(111, 184, 255, 0.4);
-      border-radius: 12px; padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em;
-      text-transform: uppercase; color: var(--text); opacity: 0; transition: opacity 0.15s ease;
-      z-index: 30;
-    }
-    #message.visible { opacity: 1; }
-
-    @media (max-width: 700px) {
-      .hud-top { gap: 8px; }
-      .statbox { min-width: 120px; }
-      .bottom-bar { min-width: 260px; }
-    }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071016"><title>Ghostline Ops — Campaign</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+:root{--ink:#071016;--glass:rgba(8,17,23,.82);--glass2:rgba(11,23,30,.94);--white:#eff7f8;--muted:#9aafb4;--cyan:#71e1e6;--gold:#e4bd7a;--red:#fa6f67;--line:rgba(161,208,211,.23);--display:'Barlow Condensed',Impact,sans-serif;--body:'Rajdhani',Arial,sans-serif}
+*{box-sizing:border-box}html,body{height:100%;margin:0;overflow:hidden;background:#050b0f;color:var(--white);font-family:var(--body)}body:after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.13;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E");mix-blend-mode:screen}
+#gameCanvas{position:fixed;inset:0;width:100%;height:100%;display:block;background:linear-gradient(#74878a,#131b1c)}
+.scanlines{position:fixed;inset:0;z-index:4;pointer-events:none;background:linear-gradient(transparent 50%,rgba(0,0,0,.1) 50%);background-size:100% 4px;opacity:.2}
+.vignette{position:fixed;inset:0;z-index:3;pointer-events:none;background:radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,.65) 100%)}
+#menu{position:fixed;inset:0;z-index:10;display:flex;align-items:center;background:linear-gradient(90deg,rgba(3,8,11,.96) 0%,rgba(4,11,15,.88) 38%,rgba(3,8,11,.24) 100%);transition:opacity .35s ease}
+#menu.hidden{opacity:0;pointer-events:none}.menu-content{width:min(580px,92vw);padding:clamp(24px,5vw,68px);animation:enter .65s both}.eyebrow{display:flex;align-items:center;gap:12px;color:var(--cyan);font-size:12px;letter-spacing:.3em;text-transform:uppercase;font-weight:700}.eyebrow:before{content:'';width:30px;height:1px;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+h1{font:800 clamp(66px,10vw,128px)/.78 var(--display);letter-spacing:.025em;margin:28px 0 24px;text-transform:uppercase;text-shadow:0 5px 35px rgba(0,0,0,.7)}h1 span{display:block;color:var(--cyan);font-weight:500;letter-spacing:.16em;font-size:.44em;margin-top:15px}.intro{max-width:390px;color:#bdc9c7;font-size:17px;line-height:1.35;margin:0 0 28px}.mission-tag{font:600 12px var(--body);letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin:0 0 20px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:400px}.actions button:first-child{grid-column:span 2}.button{height:50px;border:1px solid rgba(147,204,205,.36);background:rgba(17,34,41,.75);color:var(--white);font:700 14px var(--body);letter-spacing:.19em;text-transform:uppercase;cursor:pointer;transition:.18s;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,0 100%)}.button.primary{color:#061014;background:var(--cyan);border-color:var(--cyan)}.button:hover{transform:translateY(-2px);filter:brightness(1.13);box-shadow:0 8px 26px rgba(66,196,202,.18)}.button:active{transform:translateY(0)}
+.settings{display:flex;align-items:center;gap:14px;margin-top:23px;color:var(--muted);font-size:12px;letter-spacing:.17em;text-transform:uppercase}.settings select{color:var(--white);background:#101d22;border:1px solid var(--line);padding:9px 14px;font:600 14px var(--body)}#saveStatus{min-height:18px;margin:17px 0 0;color:#9daead;font-size:13px;letter-spacing:.08em}.menu-footer{margin-top:42px;padding-top:14px;border-top:1px solid var(--line);max-width:400px;color:#708184;font-size:11px;letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between}
+#hud{position:fixed;inset:0;z-index:6;pointer-events:none;opacity:0;transition:opacity .3s}#hud.active{opacity:1}.hud-top{position:absolute;top:24px;left:28px;right:28px;display:flex;justify-content:space-between;align-items:flex-start}.hud-block{padding:9px 14px;border-left:2px solid var(--cyan);background:linear-gradient(90deg,rgba(5,13,16,.68),transparent);min-width:145px}.hud-label{color:#a7bab9;font-size:10px;letter-spacing:.22em;text-transform:uppercase}.hud-value{font:600 25px/.95 var(--display);letter-spacing:.05em;margin-top:5px;text-shadow:0 2px 8px #000}.health-wrap{width:160px;height:3px;background:rgba(255,255,255,.2);margin-top:8px}.health-bar{height:100%;width:100%;background:var(--cyan);transition:width .2s,background .2s}.mission-heading{font:700 14px var(--body);letter-spacing:.13em;text-transform:uppercase}.reticle{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%);filter:drop-shadow(0 0 5px rgba(133,238,238,.7))}.reticle:before,.reticle:after{content:'';position:absolute;background:rgba(222,255,255,.9)}.reticle:before{width:1px;height:25px;left:14px;top:2px}.reticle:after{height:1px;width:25px;top:14px;left:2px}.reticle-dot{position:absolute;width:3px;height:3px;left:13px;top:13px;background:#fff;border-radius:50%}
+.objective{position:absolute;left:28px;bottom:40px;width:min(385px,calc(100vw - 56px));padding:14px 18px;background:linear-gradient(90deg,rgba(5,13,16,.78),rgba(5,13,16,.22));border-left:2px solid var(--gold)}.objective .hud-label{color:var(--gold)}#objectiveText{font:600 18px/1.2 var(--body);margin-top:5px}.progress-track{height:2px;background:rgba(255,255,255,.16);margin-top:12px}.progress-fill{height:100%;width:0;background:var(--gold);transition:width .25s}.bottom-info{position:absolute;right:28px;bottom:40px;text-align:right}.weapon{font:700 32px/.9 var(--display);letter-spacing:.07em;text-transform:uppercase}.ammo{font:600 16px var(--body);letter-spacing:.13em;color:var(--cyan);margin-top:7px}.controls-hint{position:absolute;right:28px;top:91px;color:rgba(235,247,247,.7);font-size:11px;letter-spacing:.13em;text-transform:uppercase;text-align:right;line-height:1.7}.#message{position:fixed;z-index:12;top:19%;left:50%;transform:translate(-50%,-8px);padding:10px 24px;border-top:1px solid var(--cyan);border-bottom:1px solid var(--cyan);background:rgba(4,12,16,.82);font:700 13px var(--body);letter-spacing:.24em;text-transform:uppercase;opacity:0;transition:.2s;pointer-events:none}#message.visible{opacity:1;transform:translate(-50%,0)}#damageFlash{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;background:radial-gradient(ellipse,transparent 35%,rgba(211,43,38,.68));transition:opacity .15s}
+#pauseHint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:7;color:rgba(255,255,255,.58);font-size:10px;letter-spacing:.18em;text-transform:uppercase;pointer-events:none;opacity:0}#pauseHint.active{opacity:1}
+@keyframes enter{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:translateX(0)}}
+@media(max-width:650px){#menu{background:rgba(3,8,11,.83)}.menu-content{padding:25px}h1{font-size:72px}.hud-top{top:12px;left:12px;right:12px;gap:6px}.hud-block{min-width:0;padding:7px 9px}.hud-value{font-size:20px}.health-wrap{width:90px}.objective{left:12px;bottom:22px;width:calc(100vw - 24px);padding:10px 12px}.bottom-info{right:15px;bottom:100px}.controls-hint{display:none}.menu-footer{margin-top:28px}.actions{gap:7px}.button{font-size:12px;letter-spacing:.12em}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
-
-  <div id="menu">
-    <div class="menu-panel">
-      <div class="brand">Campaign // Tactical Ops</div>
-      <h1>Ghostline Ops</h1>
-      <div class="btn-row">
-        <button id="startBtn">Start Campaign</button>
-        <button id="continueBtn">Continue Save</button>
-        <button id="saveBtn">Save Now</button>
-      </div>
-      <div class="quality-wrap">
-        <label for="qualitySelect">Quality</label>
-        <select id="qualitySelect">
-          <option value="720p">720p</option>
-          <option value="1080p">1080p</option>
-          <option value="1440p">1440p</option>
-        </select>
-      </div>
-      <div id="saveStatus" class="save-status">No save detected.</div>
-    </div>
-  </div>
-
-  <div id="hud">
-    <div class="hud-top">
-      <div class="statbox"><span class="label">Mission</span><span id="missionName" class="value">---</span></div>
-      <div class="statbox"><span class="label">Health</span><span id="healthValue" class="value">100</span></div>
-      <div class="statbox"><span class="label">Ammo</span><span id="ammoValue" class="value">30 / 120</span></div>
-    </div>
-
-    <div class="reticle"><div class="v"></div></div>
-
-    <div class="objective-box">
-      <span class="label">Objective</span>
-      <div id="objectiveText" class="objective-text">---</div>
-    </div>
-
-    <div class="bottom-bar">
-      <div id="weaponName" class="weapon-name">Rifle</div>
-      <div id="statusText" class="status-text">Awaiting orders</div>
-    </div>
-  </div>
-
-  <div id="message">Message</div>
-
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script>
-    const SAVE_KEY = 'ghostline_ops_save_v1';
-    const PRESETS = {
-      '720p': { pixelRatio: 1.0, fov: 78 },
-      '1080p': { pixelRatio: 1.3, fov: 72 },
-      '1440p': { pixelRatio: 1.7, fov: 68 },
-    };
-
-    const MISSIONS = [
-      { name: 'Dustline Breach', target: 6, briefing: 'Clean out the abandoned rail yard and hold the breach.' },
-      { name: 'Signal Scramble', target: 8, briefing: 'Break the jammer squad and secure the relay tower.' },
-      { name: 'Final Push', target: 10, briefing: 'Sweep the convoy lane and end the assault.' },
-    ];
-
-    const WEAPONS = [
-      { name: 'Rifle', damage: 34, fireDelay: 0.17, mag: 30, reserve: 120, spread: 0.017 },
-      { name: 'SMG', damage: 21, fireDelay: 0.09, mag: 36, reserve: 144, spread: 0.045 },
-      { name: 'Burst', damage: 55, fireDelay: 0.32, mag: 18, reserve: 72, spread: 0.01 },
-    ];
-
-    const $ = (id) => document.getElementById(id);
-    const ui = {
-      menu: $('menu'),
-      hud: $('hud'),
-      saveStatus: $('saveStatus'),
-      missionName: $('missionName'),
-      healthValue: $('healthValue'),
-      ammoValue: $('ammoValue'),
-      objectiveText: $('objectiveText'),
-      weaponName: $('weaponName'),
-      statusText: $('statusText'),
-      message: $('message'),
-      startBtn: $('startBtn'),
-      continueBtn: $('continueBtn'),
-      saveBtn: $('saveBtn'),
-      qualitySelect: $('qualitySelect'),
-    };
-
-    const game = {
-      started: false,
-      playing: false,
-      active: false,
-      missionIndex: 0,
-      killCount: 0,
-      totalKills: 0,
-      weaponIndex: 0,
-      currentAmmo: 30,
-      reserveAmmo: 120,
-      health: 100,
-      quality: '720p',
-      lastShot: 0,
-      reloadTimer: 0,
-      messageTimer: 0,
-      lastFrame: 0,
-      score: 0,
-      pointerLocked: false,
-      scene: null,
-      camera: null,
-      renderer: null,
-      raycaster: new THREE.Raycaster(),
-      enemies: [],
-      obstacles: [],
-      muzzle: null,
-      goalMarker: null,
-      beacon: null,
-      worldReady: false,
-    };
-
-    const input = {
-      forward: false,
-      backward: false,
-      left: false,
-      right: false,
-      sprint: false,
-    };
-
-    const player = {
-      x: 0,
-      y: 1.7,
-      z: 18,
-      yaw: 0,
-      pitch: 0,
-      speed: 9.4,
-    };
-
-    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
-    function currentMission() { return MISSIONS[game.missionIndex] || MISSIONS[0]; }
-    function currentWeapon() { return WEAPONS[game.weaponIndex]; }
-    function showMessage(text, ms = 1500) {
-      ui.message.textContent = text;
-      ui.message.classList.add('visible');
-      game.messageTimer = ms;
-    }
-    function hideMessage() {
-      ui.message.classList.remove('visible');
-    }
-    function updateHud() {
-      const mission = currentMission();
-      ui.missionName.textContent = `${game.missionIndex + 1}. ${mission.name}`;
-      ui.healthValue.textContent = Math.max(0, Math.ceil(game.health));
-      ui.ammoValue.textContent = `${game.currentAmmo} / ${game.reserveAmmo}`;
-      ui.objectiveText.textContent = `${mission.briefing} (${game.killCount}/${mission.target})`;
-      ui.weaponName.textContent = currentWeapon().name;
-      ui.statusText.textContent = game.playing ? 'Mission active' : 'Paused';
-    }
-
-    function setQuality(presetName, silent = false) {
-      const preset = PRESETS[presetName] || PRESETS['720p'];
-      game.quality = presetName;
-      ui.qualitySelect.value = presetName;
-      if (game.renderer) {
-        game.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, preset.pixelRatio));
-        game.renderer.setSize(window.innerWidth, window.innerHeight, false);
-      }
-      if (game.camera) {
-        game.camera.fov = preset.fov;
-        game.camera.updateProjectionMatrix();
-      }
-      if (!silent) showMessage(`${presetName} quality selected`, 900);
-    }
-
-    function setStatus(s) {
-      ui.statusText.textContent = s;
-    }
-
-    function saveProgress() {
-      const payload = {
-        version: 1,
-        missionIndex: game.missionIndex,
-        killCount: game.killCount,
-        totalKills: game.totalKills,
-        weaponIndex: game.weaponIndex,
-        currentAmmo: game.currentAmmo,
-        reserveAmmo: game.reserveAmmo,
-        health: game.health,
-        score: game.score,
-        quality: game.quality,
-      };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
-      ui.saveStatus.textContent = `Save created: ${currentMission().name}`;
-      if (game.started) showMessage('Progress saved', 1100);
-    }
-
-    function loadProgress() {
-      try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        if (!raw) {
-          ui.saveStatus.textContent = 'No save detected.';
-          showMessage('No save found', 900);
-          return;
-        }
-        const data = JSON.parse(raw);
-        if (!data || data.version !== 1) {
-          ui.saveStatus.textContent = 'Save invalid.';
-          showMessage('Save invalid', 900);
-          return;
-        }
-        game.missionIndex = clamp(Number(data.missionIndex) || 0, 0, MISSIONS.length - 1);
-        game.killCount = clamp(Number(data.killCount) || 0, 0, MISSIONS[game.missionIndex].target + 10);
-        game.totalKills = Number(data.totalKills) || 0;
-        game.weaponIndex = clamp(Number(data.weaponIndex) || 0, 0, WEAPONS.length - 1);
-        game.currentAmmo = Number(data.currentAmmo) || WEAPONS[game.weaponIndex].mag;
-        game.reserveAmmo = Number(data.reserveAmmo) || WEAPONS[game.weaponIndex].reserve;
-        game.health = clamp(Number(data.health) || 100, 0, 100);
-        game.score = Number(data.score) || 0;
-        setQuality(data.quality || game.quality, true);
-
-        if (!game.started) startGame();
-        spawnMission();
-        game.playing = true;
-        ui.menu.style.display = 'none';
-        ui.hud.style.display = 'block';
-        document.body.requestPointerLock();
-        ui.saveStatus.textContent = `Save loaded: ${currentMission().name}`;
-        showMessage('Save loaded', 1000);
-        updateHud();
-      } catch (err) {
-        console.error(err);
-        ui.saveStatus.textContent = 'Save data unavailable.';
-      }
-    }
-
-    function addBox(x, y, z, sx, sy, sz, material) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), material);
-      mesh.position.set(x, y, z);
-      game.scene.add(mesh);
-      game.obstacles.push({ x, z, sx, sz });
-      return mesh;
-    }
-
-    function isBlocked(x, z) {
-      for (const o of game.obstacles) {
-        if (Math.abs(x - o.x) < (o.sx * 0.7) + 0.7 && Math.abs(z - o.z) < (o.sz * 0.7) + 0.7) return true;
-      }
-      return false;
-    }
-
-    function buildWorld() {
-      game.scene = new THREE.Scene();
-      game.scene.background = new THREE.Color(0x9ab3bd);
-      game.scene.fog = new THREE.Fog(0x9ab3bd, 40, 100);
-      game.camera = new THREE.PerspectiveCamera(PRESETS[game.quality].fov, window.innerWidth / window.innerHeight, 0.1, 300);
-      game.camera.rotation.order = 'YXZ';
-      game.camera.position.set(player.x, player.y, player.z);
-
-      const hemi = new THREE.HemisphereLight(0xc8dbff, 0x3b4338, 1.7);
-      game.scene.add(hemi);
-      const sun = new THREE.DirectionalLight(0xffe4b4, 1.15);
-      sun.position.set(30, 35, 12);
-      game.scene.add(sun);
-
-      addBox(0, -0.5, 0, 120, 1, 120, new THREE.MeshStandardMaterial({ color: 0x535d53, roughness: 0.98 }));
-      addBox(0, -0.05, -10, 18, 0.15, 72, new THREE.MeshStandardMaterial({ color: 0x696f73, roughness: 0.9 }));
-      addBox(-30, 0.1, 0, 2.5, 0.2, 60, new THREE.MeshStandardMaterial({ color: 0x48515d, roughness: 0.9 }));
-      addBox(30, 0.1, 0, 2.5, 0.2, 60, new THREE.MeshStandardMaterial({ color: 0x48515d, roughness: 0.9 }));
-
-      const buildingMat = new THREE.MeshStandardMaterial({ color: 0x62747e, roughness: 0.88, metalness: 0.05 });
-      const offsets = [
-        [-22, -12, 10, 8], [22, -20, 11, 10], [-28, 18, 10, 12], [28, 16, 12, 9],
-        [-10, 24, 14, 8], [12, 30, 11, 10], [-6, -36, 12, 10], [10, -32, 10, 9]
-      ];
-      for (const [x, z, sx, sz] of offsets) {
-        addBox(x, 4.4, z, sx, 8.8, sz, buildingMat);
-      }
-
-      for (let i = 0; i < 18; i++) {
-        const x = (Math.random() - 0.5) * 42;
-        const z = -30 + Math.random() * 52;
-        const s = 1.6 + Math.random() * 1.5;
-        if (Math.abs(x) < 8 && z > 0) continue;
-        addBox(x, s / 2, z, s, s, s, new THREE.MeshStandardMaterial({ color: 0x8a7054, roughness: 1 }));
-      }
-
-      const tower = new THREE.Group();
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.55, 10, 8), new THREE.MeshStandardMaterial({ color: 0x5d676b, roughness: 0.8 }));
-      post.position.y = 5; tower.add(post);
-      const beacon = new THREE.Mesh(new THREE.OctahedronGeometry(1.1), new THREE.MeshBasicMaterial({ color: 0x5ce0ff }));
-      beacon.position.y = 10.8; tower.add(beacon);
-      tower.position.set(0, 0, -39); game.scene.add(tower);
-      game.goalMarker = tower;
-      game.beacon = beacon;
-
-      const gun = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 1.1), new THREE.MeshStandardMaterial({ color: 0x1d2228, roughness: 0.44, metalness: 0.6 }));
-      body.position.set(0.34, -0.3, -0.72); gun.add(body);
-      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8), new THREE.MeshStandardMaterial({ color: 0x1b1f22, roughness: 0.3, metalness: 0.8 }));
-      barrel.rotation.x = Math.PI / 2; barrel.position.set(0.34, -0.24, -1.33); gun.add(barrel);
-      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.34, 0.22), new THREE.MeshStandardMaterial({ color: 0x111315, roughness: 0.42, metalness: 0.6 }));
-      handle.position.set(0.34, -0.52, -0.18); gun.add(handle);
-      const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.09, 7, 5), new THREE.MeshBasicMaterial({ color: 0xffd77f }));
-      muzzle.position.set(0.34, -0.24, -1.68); muzzle.visible = false; gun.add(muzzle);
-      game.muzzle = muzzle;
-      game.camera.add(gun);
-      game.scene.add(game.camera);
-
-      game.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: false, powerPreference: 'low-power' });
-      game.renderer.setSize(window.innerWidth, window.innerHeight, false);
-      game.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PRESETS[game.quality].pixelRatio));
-      game.renderer.setClearColor(0x091722, 1);
-
-      game.worldReady = true;
-    }
-
-    function createEnemy(x, z) {
-      const group = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.35, 0.55), new THREE.MeshStandardMaterial({ color: 0x8d3e3e, roughness: 0.9 }));
-      body.position.y = 1.05; group.add(body);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.31, 9, 7), new THREE.MeshStandardMaterial({ color: 0xf0d4b9, roughness: 0.8 }));
-      head.position.y = 1.88; group.add(head);
-      const vest = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.46, 0.55), new THREE.MeshStandardMaterial({ color: 0x2d313c, roughness: 0.9 }));
-      vest.position.y = 1.15; group.add(vest);
-      group.position.set(x, 0, z);
-      group.userData = { hp: 100, alive: true, cooldown: 1.0 + Math.random() * 1.5, phase: Math.random() * 6.28 };
-      game.scene.add(group);
-      game.enemies.push(group);
-    }
-
-    function spawnMission() {
-      if (!game.scene) return;
-      game.enemies.forEach((enemy) => game.scene.remove(enemy));
-      game.enemies = [];
-      game.killCount = 0;
-      const mission = currentMission();
-      const count = mission.target + 2;
-      for (let i = 0; i < count; i++) {
-        const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.8;
-        const radius = 18 + Math.random() * 18;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius - 6;
-        if (Math.abs(x) < 4 && z > 0) continue;
-        createEnemy(x, z);
-      }
-      updateHud();
-    }
-
-    function startGame() {
-      if (!game.worldReady) buildWorld();
-      game.started = true;
-      game.playing = true;
-      game.active = true;
-      game.killCount = 0;
-      game.health = 100;
-      player.x = 0; player.y = 1.7; player.z = 18; player.yaw = 0; player.pitch = 0;
-      game.currentAmmo = WEAPONS[game.weaponIndex].mag;
-      game.reserveAmmo = WEAPONS[game.weaponIndex].reserve;
-      game.reloadTimer = 0;
-      game.missionIndex = 0;
-      ui.menu.style.display = 'none';
-      ui.hud.style.display = 'block';
-      ui.saveStatus.textContent = 'Campaign started.';
-      setStatus('Mission active');
-      spawnMission();
-      document.body.requestPointerLock();
-      updateHud();
-    }
-
-    function endMission() {
-      game.score += 200 + game.killCount * 12;
-      if (game.missionIndex < MISSIONS.length - 1) {
-        game.missionIndex += 1;
-        const nextWeapon = Math.min(WEAPONS.length - 1, game.weaponIndex + 1);
-        game.weaponIndex = nextWeapon;
-        game.currentAmmo = WEAPONS[game.weaponIndex].mag;
-        game.reserveAmmo = WEAPONS[game.weaponIndex].reserve;
-        game.health = Math.min(100, game.health + 25);
-        showMessage(`Mission complete — ${currentMission().name}`, 2500);
-        setStatus('Objective complete');
-        spawnMission();
-      } else {
-        showMessage('Campaign complete — operation successful!', 3300);
-        setStatus('Campaign complete');
-        game.missionIndex = MISSIONS.length - 1;
-      }
-      saveProgress();
-      updateHud();
-    }
-
-    function killEnemy(enemy) {
-      enemy.userData.alive = false;
-      game.scene.remove(enemy);
-      game.enemies = game.enemies.filter((e) => e !== enemy);
-      game.killCount += 1;
-      game.totalKills += 1;
-      game.score += 45;
-      setStatus('Hostile neutralized');
-      showMessage('Enemy down', 600);
-      updateHud();
-
-      if (game.killCount >= currentMission().target) {
-        endMission();
-      }
-    }
-
-    function fireWeapon() {
-      if (!game.playing || !game.pointerLocked) return;
-      const weapon = currentWeapon();
-      const now = performance.now();
-      if (game.reloadTimer > 0 || now - game.lastShot < weapon.fireDelay * 1000) return;
-      if (game.currentAmmo <= 0) {
-        showMessage('Magazine empty — press R', 900);
-        setStatus('Reload required');
-        return;
-      }
-
-      game.currentAmmo -= 1;
-      game.lastShot = now;
-      if (game.muzzle) {
-        game.muzzle.visible = true;
-        setTimeout(() => { if (game.muzzle) game.muzzle.visible = false; }, 75);
-      }
-
-      const origin = game.camera.getWorldPosition(new THREE.Vector3());
-      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(game.camera.quaternion);
-      dir.x += (Math.random() - 0.5) * weapon.spread;
-      dir.y += (Math.random() - 0.5) * weapon.spread;
-      dir.normalize();
-
-      game.raycaster.set(origin, dir);
-      game.raycaster.far = 56;
-      const hits = game.raycaster.intersectObjects(game.enemies.map((e) => e.children).flat(), true);
-      if (hits.length > 0) {
-        const hitMesh = hits[0].object;
-        const enemy = hitMesh.parent && hitMesh.parent.userData ? hitMesh.parent : null;
-        if (enemy) {
-          enemy.userData.hp -= weapon.damage;
-          if (enemy.userData.hp <= 0) killEnemy(enemy);
-          else setStatus('Target hit');
-        }
-      }
-      updateHud();
-    }
-
-    function reloadWeapon() {
-      if (game.reloadTimer > 0 || game.currentAmmo >= currentWeapon().mag || game.reserveAmmo <= 0) return;
-      game.reloadTimer = 1.2;
-      setStatus('Reloading');
-      showMessage('Reloading weapon', 700);
-    }
-
-    function finishReload() {
-      const weapon = currentWeapon();
-      const needed = weapon.mag - game.currentAmmo;
-      const load = Math.min(needed, game.reserveAmmo);
-      game.currentAmmo += load;
-      game.reserveAmmo -= load;
-      game.reloadTimer = 0;
-      setStatus('Weapon ready');
-      updateHud();
-    }
-
-    function handlePlayerDamage(amount) {
-      game.health -= amount;
-      if (game.health <= 0) {
-        game.health = 100;
-        player.x = 0; player.z = 18;
-        showMessage('You were downed — respawned', 1500);
-        spawnMission();
-      }
-      updateHud();
-    }
-
-    function updateEnemies(dt) {
-      for (const enemy of [...game.enemies]) {
-        const dx = player.x - enemy.position.x;
-        const dz = player.z - enemy.position.z;
-        const dist = Math.hypot(dx, dz) || 1;
-        enemy.userData.cooldown -= dt;
-
-        if (dist > 0.1) {
-          const speed = dist < 12 ? 1.6 : 2.1;
-          enemy.position.x += (dx / dist) * speed * dt;
-          enemy.position.z += (dz / dist) * speed * dt;
-          enemy.rotation.y = Math.atan2(dx, dz);
-        }
-
-        enemy.position.y = Math.sin((performance.now() * 0.005) + enemy.userData.phase) * 0.06;
-
-        if (dist < 12 && enemy.userData.cooldown <= 0) {
-          handlePlayerDamage(6 + Math.random() * 8);
-          enemy.userData.cooldown = 1.0 + Math.random() * 1.3;
-        }
-      }
-    }
-
-    function updatePlayer(dt) {
-      const moveX = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-      const moveZ = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
-      let dx = 0, dz = 0;
-      if (moveX || moveZ) {
-        const len = Math.hypot(moveX, moveZ) || 1;
-        const speed = input.sprint ? player.speed * 1.45 : player.speed;
-        const fwd = new THREE.Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw)).normalize();
-        const side = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw)).normalize();
-        dx = ((fwd.x * (moveZ / len)) + (side.x * (moveX / len))) * speed * dt;
-        dz = ((fwd.z * (moveZ / len)) + (side.z * (moveX / len))) * speed * dt;
-      }
-
-      const nx = clamp(player.x + dx, -50, 50);
-      const nz = clamp(player.z + dz, -50, 50);
-      if (!isBlocked(nx, player.z)) player.x = nx;
-      if (!isBlocked(player.x, nz)) player.z = nz;
-
-      if (game.camera) {
-        game.camera.position.set(player.x, player.y, player.z);
-        game.camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
-      }
-    }
-
-    function animateFrame(timestamp) {
-      const dt = Math.min(0.033, (timestamp - (game.lastFrame || timestamp)) / 1000 || 0.016);
-      game.lastFrame = timestamp;
-
-      if (game.playing) {
-        if (game.reloadTimer > 0) {
-          game.reloadTimer -= dt;
-          if (game.reloadTimer <= 0) finishReload();
-        }
-
-        updatePlayer(dt);
-        updateEnemies(dt);
-
-        if (game.goalMarker) {
-          game.goalMarker.rotation.y += dt * 0.7;
-          if (game.beacon) game.beacon.rotation.z += dt * 1.2;
-        }
-
-        if (game.messageTimer > 0) {
-          game.messageTimer -= dt * 1000;
-          if (game.messageTimer <= 0) hideMessage();
-        }
-      }
-
-      if (game.renderer && game.scene && game.camera) {
-        game.renderer.render(game.scene, game.camera);
-      }
-      requestAnimationFrame(animateFrame);
-    }
-
-    function onPointerMove(e) {
-      if (!game.playing || !game.pointerLocked) return;
-      player.yaw -= e.movementX * 0.0021;
-      player.pitch = clamp(player.pitch - e.movementY * 0.0018, -1.35, 1.35);
-    }
-
-    function onKeyDown(e) {
-      const code = e.code;
-      if (code === 'KeyW') input.forward = true;
-      if (code === 'KeyS') input.backward = true;
-      if (code === 'KeyA') input.left = true;
-      if (code === 'KeyD') input.right = true;
-      if (code === 'ShiftLeft' || code === 'ShiftRight') input.sprint = true;
-      if (code === 'KeyR') reloadWeapon();
-      if (code === 'F5') saveProgress();
-      if (code === 'F9') loadProgress();
-      if (code === 'Digit1') { game.weaponIndex = 0; game.currentAmmo = WEAPONS[0].mag; game.reserveAmmo = WEAPONS[0].reserve; setStatus('Switched to Rifle'); updateHud(); }
-      if (code === 'Digit2') { game.weaponIndex = 1; game.currentAmmo = WEAPONS[1].mag; game.reserveAmmo = WEAPONS[1].reserve; setStatus('Switched to SMG'); updateHud(); }
-      if (code === 'Digit3') { game.weaponIndex = 2; game.currentAmmo = WEAPONS[2].mag; game.reserveAmmo = WEAPONS[2].reserve; setStatus('Switched to Burst'); updateHud(); }
-      if (code === 'Escape' && game.playing) {
-        document.exitPointerLock();
-        game.playing = false;
-        ui.hud.style.display = 'none';
-        ui.menu.style.display = 'flex';
-        setStatus('Paused');
-      }
-    }
-
-    function onKeyUp(e) {
-      if (e.code === 'KeyW') input.forward = false;
-      if (e.code === 'KeyS') input.backward = false;
-      if (e.code === 'KeyA') input.left = false;
-      if (e.code === 'KeyD') input.right = false;
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.sprint = false;
-    }
-
-    function bindEvents() {
-      ui.startBtn.addEventListener('click', () => {
-        game.missionIndex = 0;
-        game.weaponIndex = 0;
-        game.totalKills = 0;
-        game.score = 0;
-        startGame();
-      });
-      ui.continueBtn.addEventListener('click', loadProgress);
-      ui.saveBtn.addEventListener('click', saveProgress);
-      ui.qualitySelect.addEventListener('change', (e) => setQuality(e.target.value, false));
-
-      document.addEventListener('mousemove', onPointerMove);
-      document.addEventListener('keydown', onKeyDown);
-      document.addEventListener('keyup', onKeyUp);
-      document.addEventListener('mousedown', (e) => {
-        if (e.button === 0) fireWeapon();
-      });
-      document.addEventListener('contextmenu', (e) => e.preventDefault());
-      document.addEventListener('pointerlockchange', () => {
-        game.pointerLocked = document.pointerLockElement === document.body;
-        if (!game.pointerLocked && game.playing) {
-          game.playing = false;
-          ui.hud.style.display = 'none';
-          ui.menu.style.display = 'flex';
-          setStatus('Paused');
-        }
-      });
-      window.addEventListener('resize', () => {
-        if (game.camera && game.renderer) {
-          game.camera.aspect = window.innerWidth / window.innerHeight;
-          game.camera.updateProjectionMatrix();
-          game.renderer.setSize(window.innerWidth, window.innerHeight, false);
-        }
-      });
-    }
-
-    function init() {
-      bindEvents();
-      ui.qualitySelect.value = game.quality;
-      setQuality('720p', true);
-      try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        ui.saveStatus.textContent = raw ? 'Campaign save ready.' : 'No save detected.';
-      } catch (err) {
-        ui.saveStatus.textContent = 'Browser storage unavailable.';
-      }
-      updateHud();
-      requestAnimationFrame(animateFrame);
-    }
-
-    init();
-  </script>
+<canvas id="gameCanvas"></canvas><div class="vignette"></div><div class="scanlines"></div><div id="damageFlash"></div>
+<div id="menu"><div class="menu-content">
+  <div class="eyebrow">Campaign · Tactical operations</div>
+  <h1>Ghostline<span>O P S</span></h1>
+  <p class="mission-tag">Operation 01 &nbsp; / &nbsp; Dustline</p>
+  <p class="intro">The relay has gone dark. Move through the abandoned yard, break the hostile line, and bring the signal back online.</p>
+  <div class="actions"><button class="button primary" id="startBtn">Deploy into campaign</button><button class="button" id="continueBtn">Continue save</button><button class="button" id="saveBtn">Save progress</button></div>
+  <div class="settings"><label for="qualitySelect">Render profile</label><select id="qualitySelect"><option value="720p">Performance · 720p</option><option value="1080p">Balanced · 1080p</option><option value="1440p">High · 1440p</option></select></div>
+  <div id="saveStatus">No campaign save detected</div>
+  <div class="menu-footer"><span>Ghostline unit // 07</span><span>Single-player campaign</span></div>
+</div></div>
+<div id="hud"><div class="hud-top">
+  <div class="hud-block"><div class="hud-label">Operation</div><div class="hud-value mission-heading" id="missionName">DUSTLINE BREACH</div></div>
+  <div class="hud-block"><div class="hud-label">Vital signs</div><div class="hud-value"><span id="healthValue">100</span><span style="font-size:12px;color:#9aafb4"> / 100</span></div><div class="health-wrap"><div id="healthBar" class="health-bar"></div></div></div>
+  <div class="hud-block"><div class="hud-label">Hostiles neutralized</div><div class="hud-value" id="killValue">00 / 06</div></div>
+</div>
+<div class="controls-hint">WASD move &nbsp; · &nbsp; SHIFT sprint<br>Mouse aim &nbsp; · &nbsp; LMB fire<br>R reload &nbsp; · &nbsp; 1 / 2 / 3 weapon<br>ESC pause &nbsp; · &nbsp; F5 save</div>
+<div class="reticle"><div class="reticle-dot"></div></div>
+<div class="objective"><div class="hud-label">Current objective</div><div id="objectiveText">Clear the hostile operators in the rail yard.</div><div class="progress-track"><div id="progressFill" class="progress-fill"></div></div></div>
+<div class="bottom-info"><div class="weapon" id="weaponName">Rifle</div><div class="ammo"><span id="ammoValue">30</span> &nbsp; / &nbsp; <span id="reserveValue">120</span></div></div>
+</div><div id="message"></div><div id="pauseHint">Click to recapture aim · Esc to pause</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(()=>{
+'use strict';
+const SAVE='ghostline_ops_save_v1';
+const PRESETS={'720p':{ratio:.85,fov:76},'1080p':{ratio:1.05,fov:72},'1440p':{ratio:1.3,fov:68}};
+const MISSIONS=[{name:'Dustline Breach',target:6,text:'Clear the hostile operators in the rail yard.'},{name:'Signal Scramble',target:8,text:'Push to the relay station and silence the jamming squad.'},{name:'Final Push',target:10,text:'Sweep the convoy lane and secure the extraction route.'}];
+const GUNS=[{name:'Rifle',damage:50,rate:170,mag:30,reserve:120,spread:.012},{name:'SMG',damage:35,rate:105,mag:36,reserve:144,spread:.025},{name:'Marksman',damage:100,rate:420,mag:12,reserve:60,spread:.004}];
+const $=id=>document.getElementById(id), ui={menu:$('menu'),hud:$('hud'),saveStatus:$('saveStatus'),message:$('message'),quality:$('qualitySelect'),start:$('startBtn'),continue:$('continueBtn'),save:$('saveBtn')};
+const game={scene:null,camera:null,renderer:null,ray:new THREE.Raycaster(),enemies:[],obstacles:[],mission:0,kills:0,totalKills:0,weapon:0,ammo:30,reserve:120,health:100,score:0,playing:false,started:false,locked:false,quality:'720p',lastShot:0,reload:0,notice:0,previous:0,objects:[],muzzle:null,beacon:null};
+const player={x:0,z:18,yaw:0,pitch:0,speed:8.5};const keys={};
+const material=(c,r=.92,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+function mission(){return MISSIONS[game.mission]}
+function gun(){return GUNS[game.weapon]}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function say(text,ms=1300){ui.message.textContent=text;ui.message.classList.add('visible');game.notice=ms}
+function hud(){ $('missionName').textContent=mission().name.toUpperCase();$('healthValue').textContent=Math.ceil(game.health);$('healthBar').style.width=game.health+'%';$('healthBar').style.background=game.health<35?'#fa6f67':'#71e1e6';$('killValue').textContent=String(game.kills).padStart(2,'0')+' / '+String(mission().target).padStart(2,'0');$('objectiveText').textContent=mission().text;$('progressFill').style.width=(game.kills/mission().target*100)+'%';$('weaponName').textContent=gun().name;$('ammoValue').textContent=game.ammo;$('reserveValue').textContent=game.reserve}
+function quality(name,quiet=false){game.quality=PRESETS[name]?name:'720p';ui.quality.value=game.quality;const p=PRESETS[game.quality];if(game.camera){game.camera.fov=p.fov;game.camera.updateProjectionMatrix()}if(game.renderer){game.renderer.setPixelRatio(Math.min(devicePixelRatio||1,p.ratio));game.renderer.setSize(innerWidth,innerHeight,false)}if(!quiet&&game.started)say('Render profile · '+game.quality,900)}
+function box(x,y,z,w,h,d,mat,collide=false){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);game.scene.add(m);game.objects.push(m);if(collide)game.obstacles.push({x,z,rx:w/2,rz:d/2});return m}
+function buildWorld(){
+ game.scene=new THREE.Scene();game.scene.background=new THREE.Color(0x89999a);game.scene.fog=new THREE.Fog(0x89999a,42,110);
+ game.camera=new THREE.PerspectiveCamera(PRESETS[game.quality].fov,innerWidth/innerHeight,.1,180);game.camera.rotation.order='YXZ';
+ game.scene.add(new THREE.HemisphereLight(0xd8e7e5,0x353b32,1.35));const sun=new THREE.DirectionalLight(0xffddb4,1.55);sun.position.set(-25,38,12);game.scene.add(sun);
+ box(0,-.55,0,120,1,120,material(0x4c5148));box(0,-.02,-8,13,.08,77,material(0x696b65));
+ // Low-poly industrial outpost: warehouse blocks, parapets, pipes and cargo cover.
+ const concrete=material(0x596568), dark=material(0x303b3c), rust=material(0x665848), metal=material(0x394546,.48,.45);
+ const buildings=[[-23,-17,13,10,8],[23,-27,14,13,10],[-30,17,12,12,9],[29,18,13,12,8],[-9,34,17,10,7],[12,39,14,9,8],[-38,-6,9,12,7],[39,-5,9,12,7]];
+ buildings.forEach(([x,z,w,d,h],i)=>{box(x,h/2,z,w,h,d,concrete,true);box(x,h+.12,z,w+.45,.28,d+.45,dark);for(let n=0;n<3;n++)box(x-w/2+2+n*3,h*.55,z-d/2-.08,1.35,1.1,.12,material(i%2?0x303d40:0x7f715a));});
+ for(let i=0;i<17;i++){const x=(Math.random()-.5)*48,z=-32+Math.random()*53,s=1.5+Math.random()*1.7;if(Math.abs(x)<7&&z>2)continue;box(x,s/2,z,s,s,s,i%3?rust:dark,true);}
+ // antenna landmark
+ const tower=new THREE.Group(),mast=new THREE.Mesh(new THREE.CylinderGeometry(.24,.4,13,7),metal);mast.position.y=6.5;tower.add(mast);
+ for(let y=4;y<12;y+=2.5){const ring=new THREE.Mesh(new THREE.TorusGeometry(.8,.07,5,8),metal);ring.rotation.x=Math.PI/2;ring.position.y=y;tower.add(ring)}
+ const beacon=new THREE.Mesh(new THREE.OctahedronGeometry(.8),new THREE.MeshBasicMaterial({color:0x73edf0}));beacon.position.y=13.4;tower.add(beacon);tower.position.set(0,0,-38);game.scene.add(tower);game.beacon=beacon;
+ for(let i=0;i<8;i++){const pole=box(-32+i*9,.8,-43, .22,1.6,.22,metal);box(-32+i*9,1.55,-43,.8,.12,.12,material(0x9a7951));}
+ // first-person low-poly rifle with sight and muzzle glow
+ const rig=new THREE.Group(),body= new THREE.Mesh(new THREE.BoxGeometry(.24,.21,1.15),material(0x202929,.36,.25));body.position.set(.35,-.34,-.78);rig.add(body);
+ const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.047,.06,.75,8),metal);barrel.rotation.x=Math.PI/2;barrel.position.set(.35,-.29,-1.47);rig.add(barrel);
+ const grip=new THREE.Mesh(new THREE.BoxGeometry(.16,.34,.25),material(0x181e1c));grip.position.set(.35,-.58,-.34);grip.rotation.x=-.14;rig.add(grip);
+ const sight=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.24),metal);sight.position.set(.35,-.2,-.68);rig.add(sight);
+ game.muzzle=new THREE.Mesh(new THREE.SphereGeometry(.11,7,5),new THREE.MeshBasicMaterial({color:0xffd88b}));game.muzzle.position.set(.35,-.29,-1.87);game.muzzle.visible=false;rig.add(game.muzzle);game.camera.add(rig);game.scene.add(game.camera);
+ game.renderer=new THREE.WebGLRenderer({canvas:$('gameCanvas'),antialias:false,powerPreference:'low-power'});game.renderer.setClearColor(0x89999a);quality(game.quality,true);game.objects=[];game.obstacles=buildings.map(([x,z,w,d])=>({x,z,rx:w/2,rz:d/2}));
+}
+function enemy(x,z){const g=new THREE.Group(),uniform=material(0x493f3a),vest=material(0x292f2b),skin=material(0x9a806d);
+ const torso=new THREE.Mesh(new THREE.BoxGeometry(.82,1.13,.48),uniform);torso.position.y=1.25;g.add(torso);
+ const chest=new THREE.Mesh(new THREE.BoxGeometry(.88,.52,.52),vest);chest.position.set(0,1.35,0);g.add(chest);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.27,8,6),skin);head.position.y=2.05;g.add(head);
+ const helmet=new THREE.Mesh(new THREE.SphereGeometry(.3,8,5,0,Math.PI*2,0,Math.PI/2),material(0x353a35));helmet.position.y=2.14;g.add(helmet);
+ for(const side of [-1,1]){const limb=new THREE.Mesh(new THREE.BoxGeometry(.25,.9,.28),uniform);limb.position.set(side*.55,1.26,0);limb.rotation.z=side*.16;g.add(limb);const leg=new THREE.Mesh(new THREE.BoxGeometry(.29,.85,.32),darken());leg.position.set(side*.22,.43,0);g.add(leg)}
+ const rifle=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.8),metal);rifle.position.set(.55,1.16,-.18);g.add(rifle);
+ g.position.set(x,0,z);g.userData={hp:100,cooldown:1.1+Math.random()*1.4,phase:Math.random()*6.28,alive:true};game.scene.add(g);game.enemies.push(g);return g}
+function darken(){return material(0x282e2b)}
+function spawn(){game.enemies.forEach(e=>game.scene.remove(e));game.enemies=[];game.kills=0;const n=mission().target+2;for(let i=0;i<n;i++){const a=i/n*Math.PI*2+Math.random()*.25,r=17+Math.random()*17;let x=Math.cos(a)*r,z=Math.sin(a)*r-6;if(Math.abs(x)<7&&z>2)x+=x<0?-9:9;enemy(x,z)}hud()}
+function start(){if(!game.started){buildWorld();game.started=true}game.playing=true;game.kills=0;game.health=100;player.x=0;player.z=18;player.yaw=0;player.pitch=0;game.ammo=gun().mag;game.reserve=gun().reserve;spawn();ui.menu.classList.add('hidden');ui.hud.classList.add('active');$('pauseHint').classList.add('active');document.body.requestPointerLock?.();hud()}
+function save(){try{localStorage.setItem(SAVE,JSON.stringify({v:1,mission:game.mission,kills:game.kills,totalKills:game.totalKills,weapon:game.weapon,ammo:game.ammo,reserve:game.reserve,health:game.health,score:game.score,quality:game.quality}));ui.saveStatus.textContent='Campaign progress saved to this browser';if(game.started)say('Progress saved',900)}catch{ui.saveStatus.textContent='Could not save — browser storage is unavailable'}}
+function load(){try{const d=JSON.parse(localStorage.getItem(SAVE)||'null');if(!d||d.v!==1){ui.saveStatus.textContent='No compatible campaign save found';say('No save found');return}game.mission=clamp(+d.mission||0,0,MISSIONS.length-1);game.totalKills=+d.totalKills||0;game.weapon=clamp(+d.weapon||0,0,GUNS.length-1);game.ammo=clamp(+d.ammo||gun().mag,0,gun().mag);game.reserve=Math.max(0,+d.reserve||gun().reserve);game.health=clamp(+d.health||100,1,100);game.score=+d.score||0;quality(d.quality||'720p',true);if(!game.started){buildWorld();game.started=true}spawn();game.kills=clamp(+d.kills||0,0,mission().target-1);for(let i=0;i<game.kills&&game.enemies.length;i++){game.scene.remove(game.enemies[0]);game.enemies.shift()}game.playing=true;ui.menu.classList.add('hidden');ui.hud.classList.add('active');$('pauseHint').classList.add('active');document.body.requestPointerLock?.();ui.saveStatus.textContent='Campaign save loaded';hud();say('Save loaded')}catch{ui.saveStatus.textContent='Save file could not be read'}}
+function finishMission(){game.score+=200+game.kills*15;if(game.mission<MISSIONS.length-1){game.mission++;game.health=Math.min(100,game.health+25);game.weapon=Math.min(2,game.weapon+1);game.ammo=gun().mag;game.reserve=gun().reserve;spawn();say('Objective complete · '+mission().name,2200);save()}else{say('Campaign complete · extraction successful',3500);game.mission=0;game.kills=0;spawn();save()}hud()}
+function downEnemy(e){game.scene.remove(e);game.enemies=game.enemies.filter(x=>x!==e);game.kills++;game.totalKills++;game.score+=50;hud();if(game.kills>=mission().target)finishMission();else say('Hostile neutralized',600)}
+function shoot(){if(!game.playing||!game.locked)return;const w=gun(),now=performance.now();if(game.reload>0||now-game.lastShot<w.rate)return;if(!game.ammo){say('Magazine empty · press R');return}game.ammo--;game.lastShot=now;game.muzzle.visible=true;setTimeout(()=>game.muzzle&&(game.muzzle.visible=false),65);const dir=new THREE.Vector3(0,0,-1).applyQuaternion(game.camera.quaternion);dir.x+=(Math.random()-.5)*w.spread;dir.y+=(Math.random()-.5)*w.spread;game.ray.set(game.camera.getWorldPosition(new THREE.Vector3()),dir.normalize());game.ray.far=58;const hits=game.ray.intersectObjects(game.enemies.flatMap(e=>e.children),false);if(hits.length){const e=hits[0].object.parent;if(e?.userData){e.userData.hp-=w.damage;if(e.userData.hp<=0)downEnemy(e);else say('Target hit',400)}}hud()}
+function reload(){if(game.reload||game.ammo>=gun().mag||!game.reserve)return;game.reload=1.15;say('Reloading',600)}
+function enemyAI(dt){for(const e of [...game.enemies]){const dx=player.x-e.position.x,dz=player.z-e.position.z,d=Math.hypot(dx,dz)||1;e.userData.cooldown-=dt;if(d>8){const sp=d<15?1.05:1.6;e.position.x+=dx/d*sp*dt;e.position.z+=dz/d*sp*dt;e.rotation.y=Math.atan2(dx,dz)}e.position.y=Math.sin(performance.now()*.004+e.userData.phase)*.025;if(d<20&&e.userData.cooldown<=0){game.health-=5+Math.random()*5;$('damageFlash').style.opacity='.6';setTimeout(()=>$('damageFlash').style.opacity='0',140);e.userData.cooldown=1.1+Math.random()*1.2;if(game.health<=0){game.health=100;player.x=0;player.z=18;spawn();say('Regrouped at rally point',1400)}hud()}}}
+function blocked(x,z){return game.obstacles.some(o=>Math.abs(x-o.x)<o.rx+.55&&Math.abs(z-o.z)<o.rz+.55)}
+function update(dt){if(!game.playing)return;const f=(keys.KeyW?1:0)-(keys.KeyS?1:0),s=(keys.KeyD?1:0)-(keys.KeyA?1:0),len=Math.hypot(f,s)||1,sp=player.speed*((keys.ShiftLeft||keys.ShiftRight)?1.45:1);const dx=(Math.sin(player.yaw)*f+Math.cos(player.yaw)*s)/len*sp*dt,dz=(-Math.cos(player.yaw)*f+Math.sin(player.yaw)*s)/len*sp*dt;const nx=clamp(player.x+dx,-53,53),nz=clamp(player.z+dz,-53,53);if(!blocked(nx,player.z))player.x=nx;if(!blocked(player.x,nz))player.z=nz;game.camera.position.set(player.x,1.7,player.z);game.camera.rotation.set(player.pitch,player.yaw,0,'YXZ');enemyAI(dt);if(game.beacon)game.beacon.rotation.y+=dt;if(game.reload>0&&(game.reload-=dt)<=0){const n=Math.min(gun().mag-game.ammo,game.reserve);game.ammo+=n;game.reserve-=n;hud()}if(game.notice>0&&(game.notice-=dt*1000)<=0)ui.message.classList.remove('visible')}
+function frame(t){const dt=Math.min(.04,(t-(game.previous||t))/1000||.016);game.previous=t;update(dt);if(game.renderer&&game.scene)game.renderer.render(game.scene,game.camera);requestAnimationFrame(frame)}
+function pause(){game.playing=false;ui.menu.classList.remove('hidden');ui.hud.classList.remove('active');$('pauseHint').classList.remove('active');$('startBtn').textContent='Resume operation';ui.saveStatus.textContent='Paused · campaign progress is saved locally'}
+ui.start.addEventListener('click',()=>{if(game.started&&ui.start.textContent.toLowerCase().includes('resume')){game.playing=true;ui.menu.classList.add('hidden');ui.hud.classList.add('active');$('pauseHint').classList.add('active');document.body.requestPointerLock?.();return}game.mission=0;game.totalKills=0;game.weapon=0;game.score=0;ui.start.textContent='Deploy into campaign';start()});ui.continue.addEventListener('click',load);ui.save.addEventListener('click',save);ui.quality.addEventListener('change',e=>quality(e.target.value));
+document.addEventListener('pointerlockchange',()=>{game.locked=document.pointerLockElement===document.body;if(!game.locked&&game.playing)pause()});document.addEventListener('mousemove',e=>{if(!game.locked||!game.playing)return;player.yaw-=e.movementX*.002;player.pitch=clamp(player.pitch-e.movementY*.0017,-1.3,1.3)});document.addEventListener('mousedown',e=>{if(e.button===0)shoot()});document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Escape'&&game.playing){document.exitPointerLock?.();pause()}if(e.code==='KeyR')reload();if(e.code==='F5'){e.preventDefault();save()}if(e.code==='Digit1'||e.code==='Digit2'||e.code==='Digit3'){game.weapon=Number(e.code.slice(-1))-1;game.ammo=gun().mag;game.reserve=gun().reserve;hud()}});document.addEventListener('keyup',e=>keys[e.code]=false);document.addEventListener('contextmenu',e=>e.preventDefault());$('gameCanvas').addEventListener('click',()=>{if(game.started&&!game.playing&&ui.menu.classList.contains('hidden')){game.playing=true;document.body.requestPointerLock?.()}});window.addEventListener('resize',()=>{if(game.camera&&game.renderer){game.camera.aspect=innerWidth/innerHeight;game.camera.updateProjectionMatrix();game.renderer.setSize(innerWidth,innerHeight,false)}});
+quality('720p',true);try{ui.saveStatus.textContent=localStorage.getItem(SAVE)?'Campaign save detected · ready to continue':'No campaign save detected'}catch{ui.saveStatus.textContent='Browser storage unavailable'}requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>
