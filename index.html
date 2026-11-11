@@ -1,80 +1,776 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ghostline Ops</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div id="game-shell">
-      <canvas id="gameCanvas"></canvas>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ghostline Ops</title>
+  <style>
+    :root {
+      --bg0: #040b11;
+      --bg1: #0b1b25;
+      --panel: rgba(7, 17, 23, 0.78);
+      --panel-strong: rgba(5, 12, 17, 0.9);
+      --line: rgba(124, 180, 255, 0.65);
+      --text: #edf7ff;
+      --muted: #9dc5eb;
+      --accent: #8ee2ff;
+      --danger: #f07878;
+      --good: #ccf4b2;
+    }
 
-      <div id="menu" class="panel visible">
-        <div class="brand-block">
-          <p class="kicker">Campaign // Tactical Ops</p>
-          <h1>Ghostline Ops</h1>
-        </div>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg0); color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    body { position: relative; }
+    canvas {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh; display: block;
+      background: linear-gradient(#0a1e2c, #04080d 62%);
+    }
 
-        <div class="menu-grid">
-          <button id="startBtn">Start Campaign</button>
-          <button id="continueBtn">Continue Save</button>
-          <button id="saveBtn">Save Now</button>
-        </div>
+    #menu {
+      position: fixed; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(2, 8, 12, 0.7);
+      backdrop-filter: blur(4px);
+    }
+    .menu-panel {
+      width: min(620px, 88vw); padding: 28px 24px 20px;
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 16px; box-shadow: 0 0 30px rgba(100, 150, 220, 0.18);
+      text-align: center;
+    }
+    .brand { letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); font-size: 11px; }
+    h1 {
+      margin: 12px 0 18px; font-size: clamp(2.3rem, 5vw, 4.3rem);
+      letter-spacing: 0.09em; text-transform: uppercase;
+      text-shadow: 0 0 22px rgba(133, 211, 255, 0.42);
+    }
+    .btn-row {
+      display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+      margin-bottom: 18px;
+    }
+    button, select {
+      appearance: none; border: 1px solid var(--line); background: rgba(10, 22, 31, 0.9);
+      color: var(--text); border-radius: 12px; padding: 0 18px; min-height: 46px;
+      min-width: 180px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    button:hover, select:hover { transform: translateY(-1px); box-shadow: 0 0 18px rgba(120,190,255,0.25); }
+    .quality-wrap {
+      display: flex; justify-content: center; align-items: center; gap: 12px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    select {
+      min-width: 118px; padding-left: 12px;
+    }
+    .save-status {
+      min-height: 20px; color: var(--muted); letter-spacing: 0.08em; font-weight: 700;
+      text-transform: uppercase; font-size: 11px;
+    }
 
-        <div class="config" aria-label="Game settings">
-          <label>
-            Quality
-            <select id="qualitySelect">
-              <option value="720p">720p</option>
-              <option value="1080p">1080p</option>
-              <option value="1440p">1440p</option>
-            </select>
-          </label>
-        </div>
+    #hud {
+      position: fixed; inset: 0; z-index: 10; pointer-events: none; display: none;
+    }
+    .hud-top {
+      position: absolute; top: 18px; left: 18px; right: 18px;
+      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
+    .statbox {
+      min-width: 160px; background: rgba(4, 12, 19, 0.72); border: 1px solid rgba(128, 183, 255, 0.3);
+      border-radius: 12px; padding: 10px 14px; box-shadow: 0 0 22px rgba(100,150,255,0.12);
+    }
+    .label {
+      display: block; color: var(--muted); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    }
+    .value {
+      display: block; margin-top: 4px; font-weight: 700; font-size: 1.15rem;
+    }
 
-        <div class="save-box">
-          <p id="saveStatus">No save detected.</p>
-        </div>
+    .reticle {
+      position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; transform: translate(-50%, -50%);
+    }
+    .reticle::before, .reticle::after,
+    .reticle .v, .reticle .h {
+      content: ''; position: absolute; background: rgba(255,255,255,0.9);
+      box-shadow: 0 0 12px rgba(166, 216, 255, 0.7);
+    }
+    .reticle::before { width: 1px; height: 36px; left: 18px; top: 1px; }
+    .reticle::after { width: 36px; height: 1px; left: 1px; top: 18px; }
+    .reticle .v { width: 5px; height: 5px; left: 16.5px; top: 16.5px; border-radius: 50%; background: rgba(255,255,255,0.95); }
+    .reticle .h { width: 0; height: 0; }
+
+    .objective-box {
+      position: absolute; left: 22px; bottom: 70px; max-width: min(420px, 80vw);
+      background: rgba(5, 15, 21, 0.72); border: 1px solid rgba(132, 190, 255, 0.38);
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .objective-text { margin-top: 6px; font-weight: 700; font-size: 1rem; }
+
+    .bottom-bar {
+      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 16px; min-width: 340px;
+      background: rgba(4, 12, 17, 0.8); border: 1px solid rgba(118, 167, 236, 0.35);
+      border-radius: 12px; padding: 10px 18px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .weapon-name { color: var(--accent); font-size: 0.8rem; font-weight: 700; }
+    .status-text { color: var(--text); font-size: 0.72rem; }
+
+    #message {
+      position: absolute; left: 50%; top: 100px; transform: translateX(-50%);
+      background: rgba(5, 11, 16, 0.8); border: 1px solid rgba(111, 184, 255, 0.4);
+      border-radius: 12px; padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--text); opacity: 0; transition: opacity 0.15s ease;
+      z-index: 30;
+    }
+    #message.visible { opacity: 1; }
+
+    @media (max-width: 700px) {
+      .hud-top { gap: 8px; }
+      .statbox { min-width: 120px; }
+      .bottom-bar { min-width: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="menu">
+    <div class="menu-panel">
+      <div class="brand">Campaign // Tactical Ops</div>
+      <h1>Ghostline Ops</h1>
+      <div class="btn-row">
+        <button id="startBtn">Start Campaign</button>
+        <button id="continueBtn">Continue Save</button>
+        <button id="saveBtn">Save Now</button>
       </div>
-
-      <div id="hud" class="hidden">
-        <div id="topHud">
-          <div class="stat">
-            <span class="label">Mission</span>
-            <span id="missionName">---</span>
-          </div>
-          <div class="stat">
-            <span class="label">Health</span>
-            <span id="healthValue">100</span>
-          </div>
-          <div class="stat">
-            <span class="label">Ammo</span>
-            <span id="ammoValue">30 / 120</span>
-          </div>
-        </div>
-
-        <div id="reticle">
-          <div class="line horizontal"></div>
-          <div class="line vertical"></div>
-          <div class="dot"></div>
-        </div>
-
-        <div id="objectivePanel">
-          <span class="label">Objective</span>
-          <div id="objectiveText">---</div>
-        </div>
-
-        <div id="bottomBar">
-          <div id="weaponName">Rifle</div>
-          <div id="statusText">Awaiting orders</div>
-        </div>
+      <div class="quality-wrap">
+        <label for="qualitySelect">Quality</label>
+        <select id="qualitySelect">
+          <option value="720p">720p</option>
+          <option value="1080p">1080p</option>
+          <option value="1440p">1440p</option>
+        </select>
       </div>
+      <div id="saveStatus" class="save-status">No save detected.</div>
+    </div>
+  </div>
 
-      <div id="message" class="hidden"></div>
+  <div id="hud">
+    <div class="hud-top">
+      <div class="statbox"><span class="label">Mission</span><span id="missionName" class="value">---</span></div>
+      <div class="statbox"><span class="label">Health</span><span id="healthValue" class="value">100</span></div>
+      <div class="statbox"><span class="label">Ammo</span><span id="ammoValue" class="value">30 / 120</span></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script src="game.js"></script>
-  </body>
+    <div class="reticle"><div class="v"></div></div>
+
+    <div class="objective-box">
+      <span class="label">Objective</span>
+      <div id="objectiveText" class="objective-text">---</div>
+    </div>
+
+    <div class="bottom-bar">
+      <div id="weaponName" class="weapon-name">Rifle</div>
+      <div id="statusText" class="status-text">Awaiting orders</div>
+    </div>
+  </div>
+
+  <div id="message">Message</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script>
+    const SAVE_KEY = 'ghostline_ops_save_v1';
+    const PRESETS = {
+      '720p': { pixelRatio: 1.0, fov: 78 },
+      '1080p': { pixelRatio: 1.3, fov: 72 },
+      '1440p': { pixelRatio: 1.7, fov: 68 },
+    };
+
+    const MISSIONS = [
+      { name: 'Dustline Breach', target: 6, briefing: 'Clean out the abandoned rail yard and hold the breach.' },
+      { name: 'Signal Scramble', target: 8, briefing: 'Break the jammer squad and secure the relay tower.' },
+      { name: 'Final Push', target: 10, briefing: 'Sweep the convoy lane and end the assault.' },
+    ];
+
+    const WEAPONS = [
+      { name: 'Rifle', damage: 34, fireDelay: 0.17, mag: 30, reserve: 120, spread: 0.017 },
+      { name: 'SMG', damage: 21, fireDelay: 0.09, mag: 36, reserve: 144, spread: 0.045 },
+      { name: 'Burst', damage: 55, fireDelay: 0.32, mag: 18, reserve: 72, spread: 0.01 },
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const ui = {
+      menu: $('menu'),
+      hud: $('hud'),
+      saveStatus: $('saveStatus'),
+      missionName: $('missionName'),
+      healthValue: $('healthValue'),
+      ammoValue: $('ammoValue'),
+      objectiveText: $('objectiveText'),
+      weaponName: $('weaponName'),
+      statusText: $('statusText'),
+      message: $('message'),
+      startBtn: $('startBtn'),
+      continueBtn: $('continueBtn'),
+      saveBtn: $('saveBtn'),
+      qualitySelect: $('qualitySelect'),
+    };
+
+    const game = {
+      started: false,
+      playing: false,
+      active: false,
+      missionIndex: 0,
+      killCount: 0,
+      totalKills: 0,
+      weaponIndex: 0,
+      currentAmmo: 30,
+      reserveAmmo: 120,
+      health: 100,
+      quality: '720p',
+      lastShot: 0,
+      reloadTimer: 0,
+      messageTimer: 0,
+      lastFrame: 0,
+      score: 0,
+      pointerLocked: false,
+      scene: null,
+      camera: null,
+      renderer: null,
+      raycaster: new THREE.Raycaster(),
+      enemies: [],
+      obstacles: [],
+      muzzle: null,
+      goalMarker: null,
+      beacon: null,
+      worldReady: false,
+    };
+
+    const input = {
+      forward: false,
+      backward: false,
+      left: false,
+      right: false,
+      sprint: false,
+    };
+
+    const player = {
+      x: 0,
+      y: 1.7,
+      z: 18,
+      yaw: 0,
+      pitch: 0,
+      speed: 9.4,
+    };
+
+    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+    function currentMission() { return MISSIONS[game.missionIndex] || MISSIONS[0]; }
+    function currentWeapon() { return WEAPONS[game.weaponIndex]; }
+    function showMessage(text, ms = 1500) {
+      ui.message.textContent = text;
+      ui.message.classList.add('visible');
+      game.messageTimer = ms;
+    }
+    function hideMessage() {
+      ui.message.classList.remove('visible');
+    }
+    function updateHud() {
+      const mission = currentMission();
+      ui.missionName.textContent = `${game.missionIndex + 1}. ${mission.name}`;
+      ui.healthValue.textContent = Math.max(0, Math.ceil(game.health));
+      ui.ammoValue.textContent = `${game.currentAmmo} / ${game.reserveAmmo}`;
+      ui.objectiveText.textContent = `${mission.briefing} (${game.killCount}/${mission.target})`;
+      ui.weaponName.textContent = currentWeapon().name;
+      ui.statusText.textContent = game.playing ? 'Mission active' : 'Paused';
+    }
+
+    function setQuality(presetName, silent = false) {
+      const preset = PRESETS[presetName] || PRESETS['720p'];
+      game.quality = presetName;
+      ui.qualitySelect.value = presetName;
+      if (game.renderer) {
+        game.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, preset.pixelRatio));
+        game.renderer.setSize(window.innerWidth, window.innerHeight, false);
+      }
+      if (game.camera) {
+        game.camera.fov = preset.fov;
+        game.camera.updateProjectionMatrix();
+      }
+      if (!silent) showMessage(`${presetName} quality selected`, 900);
+    }
+
+    function setStatus(s) {
+      ui.statusText.textContent = s;
+    }
+
+    function saveProgress() {
+      const payload = {
+        version: 1,
+        missionIndex: game.missionIndex,
+        killCount: game.killCount,
+        totalKills: game.totalKills,
+        weaponIndex: game.weaponIndex,
+        currentAmmo: game.currentAmmo,
+        reserveAmmo: game.reserveAmmo,
+        health: game.health,
+        score: game.score,
+        quality: game.quality,
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+      ui.saveStatus.textContent = `Save created: ${currentMission().name}`;
+      if (game.started) showMessage('Progress saved', 1100);
+    }
+
+    function loadProgress() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) {
+          ui.saveStatus.textContent = 'No save detected.';
+          showMessage('No save found', 900);
+          return;
+        }
+        const data = JSON.parse(raw);
+        if (!data || data.version !== 1) {
+          ui.saveStatus.textContent = 'Save invalid.';
+          showMessage('Save invalid', 900);
+          return;
+        }
+        game.missionIndex = clamp(Number(data.missionIndex) || 0, 0, MISSIONS.length - 1);
+        game.killCount = clamp(Number(data.killCount) || 0, 0, MISSIONS[game.missionIndex].target + 10);
+        game.totalKills = Number(data.totalKills) || 0;
+        game.weaponIndex = clamp(Number(data.weaponIndex) || 0, 0, WEAPONS.length - 1);
+        game.currentAmmo = Number(data.currentAmmo) || WEAPONS[game.weaponIndex].mag;
+        game.reserveAmmo = Number(data.reserveAmmo) || WEAPONS[game.weaponIndex].reserve;
+        game.health = clamp(Number(data.health) || 100, 0, 100);
+        game.score = Number(data.score) || 0;
+        setQuality(data.quality || game.quality, true);
+
+        if (!game.started) startGame();
+        spawnMission();
+        game.playing = true;
+        ui.menu.style.display = 'none';
+        ui.hud.style.display = 'block';
+        document.body.requestPointerLock();
+        ui.saveStatus.textContent = `Save loaded: ${currentMission().name}`;
+        showMessage('Save loaded', 1000);
+        updateHud();
+      } catch (err) {
+        console.error(err);
+        ui.saveStatus.textContent = 'Save data unavailable.';
+      }
+    }
+
+    function addBox(x, y, z, sx, sy, sz, material) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), material);
+      mesh.position.set(x, y, z);
+      game.scene.add(mesh);
+      game.obstacles.push({ x, z, sx, sz });
+      return mesh;
+    }
+
+    function isBlocked(x, z) {
+      for (const o of game.obstacles) {
+        if (Math.abs(x - o.x) < (o.sx * 0.7) + 0.7 && Math.abs(z - o.z) < (o.sz * 0.7) + 0.7) return true;
+      }
+      return false;
+    }
+
+    function buildWorld() {
+      game.scene = new THREE.Scene();
+      game.scene.background = new THREE.Color(0x9ab3bd);
+      game.scene.fog = new THREE.Fog(0x9ab3bd, 40, 100);
+      game.camera = new THREE.PerspectiveCamera(PRESETS[game.quality].fov, window.innerWidth / window.innerHeight, 0.1, 300);
+      game.camera.rotation.order = 'YXZ';
+      game.camera.position.set(player.x, player.y, player.z);
+
+      const hemi = new THREE.HemisphereLight(0xc8dbff, 0x3b4338, 1.7);
+      game.scene.add(hemi);
+      const sun = new THREE.DirectionalLight(0xffe4b4, 1.15);
+      sun.position.set(30, 35, 12);
+      game.scene.add(sun);
+
+      addBox(0, -0.5, 0, 120, 1, 120, new THREE.MeshStandardMaterial({ color: 0x535d53, roughness: 0.98 }));
+      addBox(0, -0.05, -10, 18, 0.15, 72, new THREE.MeshStandardMaterial({ color: 0x696f73, roughness: 0.9 }));
+      addBox(-30, 0.1, 0, 2.5, 0.2, 60, new THREE.MeshStandardMaterial({ color: 0x48515d, roughness: 0.9 }));
+      addBox(30, 0.1, 0, 2.5, 0.2, 60, new THREE.MeshStandardMaterial({ color: 0x48515d, roughness: 0.9 }));
+
+      const buildingMat = new THREE.MeshStandardMaterial({ color: 0x62747e, roughness: 0.88, metalness: 0.05 });
+      const offsets = [
+        [-22, -12, 10, 8], [22, -20, 11, 10], [-28, 18, 10, 12], [28, 16, 12, 9],
+        [-10, 24, 14, 8], [12, 30, 11, 10], [-6, -36, 12, 10], [10, -32, 10, 9]
+      ];
+      for (const [x, z, sx, sz] of offsets) {
+        addBox(x, 4.4, z, sx, 8.8, sz, buildingMat);
+      }
+
+      for (let i = 0; i < 18; i++) {
+        const x = (Math.random() - 0.5) * 42;
+        const z = -30 + Math.random() * 52;
+        const s = 1.6 + Math.random() * 1.5;
+        if (Math.abs(x) < 8 && z > 0) continue;
+        addBox(x, s / 2, z, s, s, s, new THREE.MeshStandardMaterial({ color: 0x8a7054, roughness: 1 }));
+      }
+
+      const tower = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.55, 10, 8), new THREE.MeshStandardMaterial({ color: 0x5d676b, roughness: 0.8 }));
+      post.position.y = 5; tower.add(post);
+      const beacon = new THREE.Mesh(new THREE.OctahedronGeometry(1.1), new THREE.MeshBasicMaterial({ color: 0x5ce0ff }));
+      beacon.position.y = 10.8; tower.add(beacon);
+      tower.position.set(0, 0, -39); game.scene.add(tower);
+      game.goalMarker = tower;
+      game.beacon = beacon;
+
+      const gun = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 1.1), new THREE.MeshStandardMaterial({ color: 0x1d2228, roughness: 0.44, metalness: 0.6 }));
+      body.position.set(0.34, -0.3, -0.72); gun.add(body);
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8), new THREE.MeshStandardMaterial({ color: 0x1b1f22, roughness: 0.3, metalness: 0.8 }));
+      barrel.rotation.x = Math.PI / 2; barrel.position.set(0.34, -0.24, -1.33); gun.add(barrel);
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.34, 0.22), new THREE.MeshStandardMaterial({ color: 0x111315, roughness: 0.42, metalness: 0.6 }));
+      handle.position.set(0.34, -0.52, -0.18); gun.add(handle);
+      const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.09, 7, 5), new THREE.MeshBasicMaterial({ color: 0xffd77f }));
+      muzzle.position.set(0.34, -0.24, -1.68); muzzle.visible = false; gun.add(muzzle);
+      game.muzzle = muzzle;
+      game.camera.add(gun);
+      game.scene.add(game.camera);
+
+      game.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: false, powerPreference: 'low-power' });
+      game.renderer.setSize(window.innerWidth, window.innerHeight, false);
+      game.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PRESETS[game.quality].pixelRatio));
+      game.renderer.setClearColor(0x091722, 1);
+
+      game.worldReady = true;
+    }
+
+    function createEnemy(x, z) {
+      const group = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.35, 0.55), new THREE.MeshStandardMaterial({ color: 0x8d3e3e, roughness: 0.9 }));
+      body.position.y = 1.05; group.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.31, 9, 7), new THREE.MeshStandardMaterial({ color: 0xf0d4b9, roughness: 0.8 }));
+      head.position.y = 1.88; group.add(head);
+      const vest = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.46, 0.55), new THREE.MeshStandardMaterial({ color: 0x2d313c, roughness: 0.9 }));
+      vest.position.y = 1.15; group.add(vest);
+      group.position.set(x, 0, z);
+      group.userData = { hp: 100, alive: true, cooldown: 1.0 + Math.random() * 1.5, phase: Math.random() * 6.28 };
+      game.scene.add(group);
+      game.enemies.push(group);
+    }
+
+    function spawnMission() {
+      if (!game.scene) return;
+      game.enemies.forEach((enemy) => game.scene.remove(enemy));
+      game.enemies = [];
+      game.killCount = 0;
+      const mission = currentMission();
+      const count = mission.target + 2;
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.8;
+        const radius = 18 + Math.random() * 18;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius - 6;
+        if (Math.abs(x) < 4 && z > 0) continue;
+        createEnemy(x, z);
+      }
+      updateHud();
+    }
+
+    function startGame() {
+      if (!game.worldReady) buildWorld();
+      game.started = true;
+      game.playing = true;
+      game.active = true;
+      game.killCount = 0;
+      game.health = 100;
+      player.x = 0; player.y = 1.7; player.z = 18; player.yaw = 0; player.pitch = 0;
+      game.currentAmmo = WEAPONS[game.weaponIndex].mag;
+      game.reserveAmmo = WEAPONS[game.weaponIndex].reserve;
+      game.reloadTimer = 0;
+      game.missionIndex = 0;
+      ui.menu.style.display = 'none';
+      ui.hud.style.display = 'block';
+      ui.saveStatus.textContent = 'Campaign started.';
+      setStatus('Mission active');
+      spawnMission();
+      document.body.requestPointerLock();
+      updateHud();
+    }
+
+    function endMission() {
+      game.score += 200 + game.killCount * 12;
+      if (game.missionIndex < MISSIONS.length - 1) {
+        game.missionIndex += 1;
+        const nextWeapon = Math.min(WEAPONS.length - 1, game.weaponIndex + 1);
+        game.weaponIndex = nextWeapon;
+        game.currentAmmo = WEAPONS[game.weaponIndex].mag;
+        game.reserveAmmo = WEAPONS[game.weaponIndex].reserve;
+        game.health = Math.min(100, game.health + 25);
+        showMessage(`Mission complete — ${currentMission().name}`, 2500);
+        setStatus('Objective complete');
+        spawnMission();
+      } else {
+        showMessage('Campaign complete — operation successful!', 3300);
+        setStatus('Campaign complete');
+        game.missionIndex = MISSIONS.length - 1;
+      }
+      saveProgress();
+      updateHud();
+    }
+
+    function killEnemy(enemy) {
+      enemy.userData.alive = false;
+      game.scene.remove(enemy);
+      game.enemies = game.enemies.filter((e) => e !== enemy);
+      game.killCount += 1;
+      game.totalKills += 1;
+      game.score += 45;
+      setStatus('Hostile neutralized');
+      showMessage('Enemy down', 600);
+      updateHud();
+
+      if (game.killCount >= currentMission().target) {
+        endMission();
+      }
+    }
+
+    function fireWeapon() {
+      if (!game.playing || !game.pointerLocked) return;
+      const weapon = currentWeapon();
+      const now = performance.now();
+      if (game.reloadTimer > 0 || now - game.lastShot < weapon.fireDelay * 1000) return;
+      if (game.currentAmmo <= 0) {
+        showMessage('Magazine empty — press R', 900);
+        setStatus('Reload required');
+        return;
+      }
+
+      game.currentAmmo -= 1;
+      game.lastShot = now;
+      if (game.muzzle) {
+        game.muzzle.visible = true;
+        setTimeout(() => { if (game.muzzle) game.muzzle.visible = false; }, 75);
+      }
+
+      const origin = game.camera.getWorldPosition(new THREE.Vector3());
+      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(game.camera.quaternion);
+      dir.x += (Math.random() - 0.5) * weapon.spread;
+      dir.y += (Math.random() - 0.5) * weapon.spread;
+      dir.normalize();
+
+      game.raycaster.set(origin, dir);
+      game.raycaster.far = 56;
+      const hits = game.raycaster.intersectObjects(game.enemies.map((e) => e.children).flat(), true);
+      if (hits.length > 0) {
+        const hitMesh = hits[0].object;
+        const enemy = hitMesh.parent && hitMesh.parent.userData ? hitMesh.parent : null;
+        if (enemy) {
+          enemy.userData.hp -= weapon.damage;
+          if (enemy.userData.hp <= 0) killEnemy(enemy);
+          else setStatus('Target hit');
+        }
+      }
+      updateHud();
+    }
+
+    function reloadWeapon() {
+      if (game.reloadTimer > 0 || game.currentAmmo >= currentWeapon().mag || game.reserveAmmo <= 0) return;
+      game.reloadTimer = 1.2;
+      setStatus('Reloading');
+      showMessage('Reloading weapon', 700);
+    }
+
+    function finishReload() {
+      const weapon = currentWeapon();
+      const needed = weapon.mag - game.currentAmmo;
+      const load = Math.min(needed, game.reserveAmmo);
+      game.currentAmmo += load;
+      game.reserveAmmo -= load;
+      game.reloadTimer = 0;
+      setStatus('Weapon ready');
+      updateHud();
+    }
+
+    function handlePlayerDamage(amount) {
+      game.health -= amount;
+      if (game.health <= 0) {
+        game.health = 100;
+        player.x = 0; player.z = 18;
+        showMessage('You were downed — respawned', 1500);
+        spawnMission();
+      }
+      updateHud();
+    }
+
+    function updateEnemies(dt) {
+      for (const enemy of [...game.enemies]) {
+        const dx = player.x - enemy.position.x;
+        const dz = player.z - enemy.position.z;
+        const dist = Math.hypot(dx, dz) || 1;
+        enemy.userData.cooldown -= dt;
+
+        if (dist > 0.1) {
+          const speed = dist < 12 ? 1.6 : 2.1;
+          enemy.position.x += (dx / dist) * speed * dt;
+          enemy.position.z += (dz / dist) * speed * dt;
+          enemy.rotation.y = Math.atan2(dx, dz);
+        }
+
+        enemy.position.y = Math.sin((performance.now() * 0.005) + enemy.userData.phase) * 0.06;
+
+        if (dist < 12 && enemy.userData.cooldown <= 0) {
+          handlePlayerDamage(6 + Math.random() * 8);
+          enemy.userData.cooldown = 1.0 + Math.random() * 1.3;
+        }
+      }
+    }
+
+    function updatePlayer(dt) {
+      const moveX = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+      const moveZ = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
+      let dx = 0, dz = 0;
+      if (moveX || moveZ) {
+        const len = Math.hypot(moveX, moveZ) || 1;
+        const speed = input.sprint ? player.speed * 1.45 : player.speed;
+        const fwd = new THREE.Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw)).normalize();
+        const side = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw)).normalize();
+        dx = ((fwd.x * (moveZ / len)) + (side.x * (moveX / len))) * speed * dt;
+        dz = ((fwd.z * (moveZ / len)) + (side.z * (moveX / len))) * speed * dt;
+      }
+
+      const nx = clamp(player.x + dx, -50, 50);
+      const nz = clamp(player.z + dz, -50, 50);
+      if (!isBlocked(nx, player.z)) player.x = nx;
+      if (!isBlocked(player.x, nz)) player.z = nz;
+
+      if (game.camera) {
+        game.camera.position.set(player.x, player.y, player.z);
+        game.camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+      }
+    }
+
+    function animateFrame(timestamp) {
+      const dt = Math.min(0.033, (timestamp - (game.lastFrame || timestamp)) / 1000 || 0.016);
+      game.lastFrame = timestamp;
+
+      if (game.playing) {
+        if (game.reloadTimer > 0) {
+          game.reloadTimer -= dt;
+          if (game.reloadTimer <= 0) finishReload();
+        }
+
+        updatePlayer(dt);
+        updateEnemies(dt);
+
+        if (game.goalMarker) {
+          game.goalMarker.rotation.y += dt * 0.7;
+          if (game.beacon) game.beacon.rotation.z += dt * 1.2;
+        }
+
+        if (game.messageTimer > 0) {
+          game.messageTimer -= dt * 1000;
+          if (game.messageTimer <= 0) hideMessage();
+        }
+      }
+
+      if (game.renderer && game.scene && game.camera) {
+        game.renderer.render(game.scene, game.camera);
+      }
+      requestAnimationFrame(animateFrame);
+    }
+
+    function onPointerMove(e) {
+      if (!game.playing || !game.pointerLocked) return;
+      player.yaw -= e.movementX * 0.0021;
+      player.pitch = clamp(player.pitch - e.movementY * 0.0018, -1.35, 1.35);
+    }
+
+    function onKeyDown(e) {
+      const code = e.code;
+      if (code === 'KeyW') input.forward = true;
+      if (code === 'KeyS') input.backward = true;
+      if (code === 'KeyA') input.left = true;
+      if (code === 'KeyD') input.right = true;
+      if (code === 'ShiftLeft' || code === 'ShiftRight') input.sprint = true;
+      if (code === 'KeyR') reloadWeapon();
+      if (code === 'F5') saveProgress();
+      if (code === 'F9') loadProgress();
+      if (code === 'Digit1') { game.weaponIndex = 0; game.currentAmmo = WEAPONS[0].mag; game.reserveAmmo = WEAPONS[0].reserve; setStatus('Switched to Rifle'); updateHud(); }
+      if (code === 'Digit2') { game.weaponIndex = 1; game.currentAmmo = WEAPONS[1].mag; game.reserveAmmo = WEAPONS[1].reserve; setStatus('Switched to SMG'); updateHud(); }
+      if (code === 'Digit3') { game.weaponIndex = 2; game.currentAmmo = WEAPONS[2].mag; game.reserveAmmo = WEAPONS[2].reserve; setStatus('Switched to Burst'); updateHud(); }
+      if (code === 'Escape' && game.playing) {
+        document.exitPointerLock();
+        game.playing = false;
+        ui.hud.style.display = 'none';
+        ui.menu.style.display = 'flex';
+        setStatus('Paused');
+      }
+    }
+
+    function onKeyUp(e) {
+      if (e.code === 'KeyW') input.forward = false;
+      if (e.code === 'KeyS') input.backward = false;
+      if (e.code === 'KeyA') input.left = false;
+      if (e.code === 'KeyD') input.right = false;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.sprint = false;
+    }
+
+    function bindEvents() {
+      ui.startBtn.addEventListener('click', () => {
+        game.missionIndex = 0;
+        game.weaponIndex = 0;
+        game.totalKills = 0;
+        game.score = 0;
+        startGame();
+      });
+      ui.continueBtn.addEventListener('click', loadProgress);
+      ui.saveBtn.addEventListener('click', saveProgress);
+      ui.qualitySelect.addEventListener('change', (e) => setQuality(e.target.value, false));
+
+      document.addEventListener('mousemove', onPointerMove);
+      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('keyup', onKeyUp);
+      document.addEventListener('mousedown', (e) => {
+        if (e.button === 0) fireWeapon();
+      });
+      document.addEventListener('contextmenu', (e) => e.preventDefault());
+      document.addEventListener('pointerlockchange', () => {
+        game.pointerLocked = document.pointerLockElement === document.body;
+        if (!game.pointerLocked && game.playing) {
+          game.playing = false;
+          ui.hud.style.display = 'none';
+          ui.menu.style.display = 'flex';
+          setStatus('Paused');
+        }
+      });
+      window.addEventListener('resize', () => {
+        if (game.camera && game.renderer) {
+          game.camera.aspect = window.innerWidth / window.innerHeight;
+          game.camera.updateProjectionMatrix();
+          game.renderer.setSize(window.innerWidth, window.innerHeight, false);
+        }
+      });
+    }
+
+    function init() {
+      bindEvents();
+      ui.qualitySelect.value = game.quality;
+      setQuality('720p', true);
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        ui.saveStatus.textContent = raw ? 'Campaign save ready.' : 'No save detected.';
+      } catch (err) {
+        ui.saveStatus.textContent = 'Browser storage unavailable.';
+      }
+      updateHud();
+      requestAnimationFrame(animateFrame);
+    }
+
+    init();
+  </script>
+</body>
 </html>
