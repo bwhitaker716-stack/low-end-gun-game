@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ghostline Ops</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="game-shell">
+      <canvas id="gameCanvas"></canvas>
+
+      <div id="menu" class="panel visible">
+        <div class="brand-block">
+          <p class="kicker">Campaign // Tactical Ops</p>
+          <h1>Ghostline Ops</h1>
+        </div>
+
+        <div class="menu-grid">
+          <button id="startBtn">Start Campaign</button>
+          <button id="continueBtn">Continue Save</button>
+          <button id="saveBtn">Save Now</button>
+        </div>
+
+        <div class="config" aria-label="Game settings">
+          <label>
+            Quality
+            <select id="qualitySelect">
+              <option value="720p">720p</option>
+              <option value="1080p">1080p</option>
+              <option value="1440p">1440p</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="save-box">
+          <p id="saveStatus">No save detected.</p>
+        </div>
+      </div>
+
+      <div id="hud" class="hidden">
+        <div id="topHud">
+          <div class="stat">
+            <span class="label">Mission</span>
+            <span id="missionName">---</span>
+          </div>
+          <div class="stat">
+            <span class="label">Health</span>
+            <span id="healthValue">100</span>
+          </div>
+          <div class="stat">
+            <span class="label">Ammo</span>
+            <span id="ammoValue">30 / 120</span>
+          </div>
+        </div>
+
+        <div id="reticle">
+          <div class="line horizontal"></div>
+          <div class="line vertical"></div>
+          <div class="dot"></div>
+        </div>
+
+        <div id="objectivePanel">
+          <span class="label">Objective</span>
+          <div id="objectiveText">---</div>
+        </div>
+
+        <div id="bottomBar">
+          <div id="weaponName">Rifle</div>
+          <div id="statusText">Awaiting orders</div>
+        </div>
+      </div>
+
+      <div id="message" class="hidden"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>
